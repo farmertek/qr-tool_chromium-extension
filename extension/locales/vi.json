@@ -105,7 +105,10 @@
         "themeLabel": "Giao diện",
         "themeSystem": "Hệ thống",
         "themeLight": "Sáng",
-        "themeDark": "Tối"
+        "themeDark": "Tối",
+        "aboutTitle": "Thông tin",
+        "aboutCopyright": "+ Copyright © 2026 by Hai lúa [DIV-MEKONG]",
+        "aboutLicenseLabel": "+ license (MIT), repository:"
     },
     "status": {
         "initial": "Khởi động extension...",

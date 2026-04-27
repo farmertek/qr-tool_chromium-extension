@@ -236,6 +236,7 @@ function cacheElements() {
 
     ui.languageSelect = document.getElementById("language-select");
     ui.themeSelect = document.getElementById("theme-select");
+    ui.settingsAboutRepositoryLink = document.getElementById("settings-about-repository-link");
 }
 
 function bindEvents() {
@@ -439,6 +440,13 @@ function bindEvents() {
         void persistState();
         setStatus(t("status.settingsSaved"), false, true);
     });
+
+    if (ui.settingsAboutRepositoryLink) {
+        ui.settingsAboutRepositoryLink.addEventListener("click", (event) => {
+            event.preventDefault();
+            openExternalCheckerPage(ui.settingsAboutRepositoryLink.href);
+        });
+    }
 
     systemThemeMedia.addEventListener("change", () => {
         if (state.theme === "system") {

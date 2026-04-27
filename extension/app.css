@@ -1023,6 +1023,48 @@ label[for="decode-output"],
     max-width: min(100%, 26ch);
 }
 
+.settings-about-card {
+    width: min(860px, 100%);
+    margin-top: 14px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px;
+    background: var(--surface-2);
+}
+
+.settings-about-title {
+    margin: 0 0 8px;
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--muted);
+}
+
+.settings-about-list {
+    margin: 0;
+    padding-left: 18px;
+    display: grid;
+    gap: 7px;
+}
+
+.settings-about-list li {
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--text);
+    overflow-wrap: anywhere;
+}
+
+.settings-about-link {
+    margin-left: 4px;
+    color: var(--accent-2);
+    text-decoration: none;
+    font-weight: 700;
+}
+
+.settings-about-link:hover,
+.settings-about-link:focus-visible {
+    text-decoration: underline;
+}
+
 .row-between {
     display: flex;
     align-items: center;
@@ -1174,6 +1216,7 @@ label[for="decode-output"],
     }
 
     .settings-select,
+    .settings-about-card,
     .status {
         width: 100%;
     }

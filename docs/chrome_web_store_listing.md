@@ -4,7 +4,7 @@
 Generate, decode, scan, and verify QR content locally with a high-performance Rust WebAssembly engine.
 
 ## Short Description (VI)
-Tao, giai ma, quet, va xac minh noi dung QR cuc nhanh bang Rust WebAssembly chay cuc bo.
+Tạo, giải mã, quét, và xác minh nội dung QR cực nhanh bằng Rust WebAssembly chạy cục bộ.
 
 ## Full Description (EN)
 QR-Tool is a productivity extension for Chromium-based browsers that helps you work with QR codes end-to-end in one interface.
@@ -33,25 +33,25 @@ Best use cases:
 - Validate destination links before opening them.
 
 ## Full Description (VI)
-QR-Tool la tien ich cho trinh duyet Chromium, ho tro toan bo quy trinh lam viec voi ma QR trong mot giao dien duy nhat.
+QR-Tool là tiện ích cho trình duyệt Chromium, hỗ trợ toàn bộ quy trình làm việc với mã QR trong một giao diện duy nhất.
 
-Tinh nang chinh:
-- Tao ma QR tu van ban hoac URL.
-- Giai ma QR tu anh tai len, keo-tha tep, hoac anh tu clipboard.
-- Quet camera realtime voi tuy chon chu ky quet, auto-stop, va tu dong sao chep ket qua.
-- Xac minh lien ket HTTP/HTTPS bang pipeline Rust WebAssembly.
-- Luu lich su thao tac o local de su dung lai nhanh.
-- Chuyen ngon ngu (Anh/Viet) va giao dien (system/light/dark).
+Tính năng chính:
+- Tạo mã QR từ văn bản hoặc URL.
+- Giải mã QR từ ảnh tải lên, kéo-thả tệp, hoặc ảnh từ clipboard.
+- Quét camera realtime với tùy chọn chu kỳ quét, auto-stop, và tự động sao chép kết quả.
+- Xác minh liên kết HTTP/HTTPS bằng pipeline Rust WebAssembly.
+- Lưu lịch sử thao tác ở local để sử dụng lại nhanh.
+- Chuyển ngôn ngữ (Anh/Viet) và giao diện (system/light/dark).
 
-Hieu nang va quyen rieng tu:
-- Engine QR viet bang Rust WebAssembly de toi uu toc do va do on dinh.
-- Xu ly du lieu ngay trong extension, khong can dang ky tai khoan.
-- Khong bat buoc gui noi dung QR len server de su dung co ban.
+Hiệu năng và quyền riêng tư:
+- Engine QR viết bằng Rust WebAssembly để tối ưu tốc độ và độ ổn định.
+- Xử lý dữ liệu ngay trong extension, không cần đăng ký tài khoản.
+- Không bắt buộc gửi nội dung QR lên server để sử dụng cơ bản.
 
-Giai thich quyen truy cap:
-- storage: luu cau hinh va lich su local.
-- clipboardRead / clipboardWrite: doc anh tu clipboard va sao chep ket qua.
-- host permissions (<all_urls>): phuc vu xac minh lien ket HTTP/HTTPS.
+Giải thích quyền truy cập:
+- storage: lưu cấu hình và lịch sử local.
+- clipboardRead / clipboardWrite: đọc ảnh từ clipboard và sao chép kết quả.
+- host permissions (<all_urls>): phục vụ xác minh liên kết HTTP/HTTPS.
 
 ## Privacy Statement Template
 QR-Tool processes QR content primarily in the local extension context. User settings and history are stored locally via browser extension storage. The extension does not require account registration. If cloud features are introduced in future versions, they must be documented in the privacy policy and release notes.

@@ -105,7 +105,10 @@
         "themeLabel": "Theme",
         "themeSystem": "System",
         "themeLight": "Light",
-        "themeDark": "Dark"
+        "themeDark": "Dark",
+        "aboutTitle": "About",
+        "aboutCopyright": "+ Copyright © 2026 by Hai lúa [DIV-MEKONG]",
+        "aboutLicenseLabel": "+ license (MIT), repository:"
     },
     "status": {
         "initial": "Starting extension...",

@@ -1,0 +1,16 @@
+{
+    "name": "qrcode-browser-extension",
+    "version": "0.1.0",
+    "private": true,
+    "type": "module",
+    "description": "QR browser extension powered by Rust WebAssembly",
+    "scripts": {
+        "build": "powershell -ExecutionPolicy Bypass -File ./scripts/build_extension.ps1",
+        "build:debug": "powershell -ExecutionPolicy Bypass -File ./scripts/build_extension.ps1 -Debug",
+        "build:linux": "bash ./scripts/build_extension.sh",
+        "build:linux:debug": "bash ./scripts/build_extension.sh --debug"
+    },
+    "dependencies": {
+        "i18next": "^23.16.8"
+    }
+}

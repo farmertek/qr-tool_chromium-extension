@@ -3,6 +3,7 @@ use base64::engine::general_purpose::{self, GeneralPurpose};
 use percent_encoding::percent_decode_str;
 use serde::Serialize;
 use std::collections::HashSet;
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use url::Url;
 use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
@@ -100,6 +101,12 @@ const KNOWN_INTERSTITIAL_HOST_SUFFIXES: [&str; 16] = [
     "shorte.st",
     "sub2get.com",
 ];
+const BLOCKED_METADATA_HOSTS: [&str; 4] = [
+    "metadata",
+    "metadata.google.internal",
+    "metadata.azure.internal",
+    "instance-data.ec2.internal",
+];
 
 #[derive(Debug, Clone, Serialize)]
 struct WasmVerifiedLink {
@@ -112,6 +119,7 @@ enum VerifyLinkErrorKind {
     InvalidLink,
     ServiceUnavailable,
     CannotResolve,
+    BlockedTarget,
 }
 
 #[derive(Debug, Clone)]
@@ -139,6 +147,7 @@ impl VerifyLinkErrorKind {
             Self::InvalidLink => "invalid-link",
             Self::ServiceUnavailable => "service-unavailable",
             Self::CannotResolve => "cannot-resolve",
+            Self::BlockedTarget => "blocked-target",
         }
     }
 }
@@ -152,7 +161,25 @@ struct FetchSnapshot {
 
 #[wasm_bindgen]
 pub async fn verify_link_wasm(input: String) -> Result<JsValue, JsValue> {
-    let verified = verify_link_internal(&input)
+    verify_link_deep_wasm(input).await
+}
+
+#[wasm_bindgen]
+pub fn verify_link_local_wasm(input: String) -> Result<JsValue, JsValue> {
+    let verified = verify_link_local_internal(&input).map_err(|error| error.to_js_error())?;
+
+    serde_wasm_bindgen::to_value(&verified)
+        .map_err(|error| js_error(&format!("Cannot serialize verify result: {error}")))
+}
+
+#[wasm_bindgen]
+pub fn preview_deep_verify_origin_wasm(input: String) -> Result<String, JsValue> {
+    preview_deep_verify_origin_internal(&input).map_err(|error| error.to_js_error())
+}
+
+#[wasm_bindgen]
+pub async fn verify_link_deep_wasm(input: String) -> Result<JsValue, JsValue> {
+    let verified = verify_link_deep_internal(&input)
         .await
         .map_err(|error| error.to_js_error())?;
 
@@ -160,14 +187,46 @@ pub async fn verify_link_wasm(input: String) -> Result<JsValue, JsValue> {
         .map_err(|error| js_error(&format!("Cannot serialize verify result: {error}")))
 }
 
-async fn verify_link_internal(input: &str) -> Result<WasmVerifiedLink, VerifyLinkError> {
+fn verify_link_local_internal(input: &str) -> Result<WasmVerifiedLink, VerifyLinkError> {
+    let input_link = normalize_user_input_link(input)?;
+    let resolved_link = unwrap_embedded_targets(input_link.clone());
+
+    ensure_public_target(&input_link)?;
+    ensure_public_target(&resolved_link)?;
+
+    Ok(WasmVerifiedLink {
+        input_link,
+        resolved_link,
+    })
+}
+
+fn preview_deep_verify_origin_internal(input: &str) -> Result<String, VerifyLinkError> {
+    let input_link = normalize_user_input_link(input)?;
+    let candidate = unwrap_embedded_targets(input_link);
+    let url = Url::parse(&candidate).map_err(|error| {
+        VerifyLinkError::new(
+            VerifyLinkErrorKind::InvalidLink,
+            format!("Input link format is invalid: {error}"),
+        )
+    })?;
+
+    ensure_public_target_url(&url)?;
+    Ok(url.origin().ascii_serialization())
+}
+
+async fn verify_link_deep_internal(input: &str) -> Result<WasmVerifiedLink, VerifyLinkError> {
     let input_link = normalize_user_input_link(input)?;
     let mut resolved_link = unwrap_embedded_targets(input_link.clone());
+    ensure_public_target(&input_link)?;
+    ensure_public_target(&resolved_link)?;
+
     let shortener_domains = shortener_domain_set();
     let mut resolved_from_shortener = false;
 
-    if let Some(direct_link) = resolve_short_link_directly(&resolved_link, &shortener_domains).await {
+    if let Some(direct_link) = resolve_short_link_directly(&resolved_link, &shortener_domains).await
+    {
         resolved_link = unwrap_embedded_targets(direct_link);
+        ensure_public_target(&resolved_link)?;
         resolved_from_shortener = true;
     }
 
@@ -182,9 +241,11 @@ async fn verify_link_internal(input: &str) -> Result<WasmVerifiedLink, VerifyLin
         }
     }
 
+    ensure_public_target(&resolved_link)?;
     match resolve_with_http(&resolved_link).await {
         Ok(link) => {
             resolved_link = unwrap_embedded_targets(link);
+            ensure_public_target(&resolved_link)?;
         }
         Err(error) => {
             if resolved_link == input_link {
@@ -197,6 +258,95 @@ async fn verify_link_internal(input: &str) -> Result<WasmVerifiedLink, VerifyLin
         input_link,
         resolved_link,
     })
+}
+
+fn ensure_public_target(link: &str) -> Result<(), VerifyLinkError> {
+    let url = Url::parse(link).map_err(|error| {
+        VerifyLinkError::new(
+            VerifyLinkErrorKind::InvalidLink,
+            format!("Input link format is invalid: {error}"),
+        )
+    })?;
+
+    ensure_public_target_url(&url)
+}
+
+fn ensure_public_target_url(url: &Url) -> Result<(), VerifyLinkError> {
+    let Some(raw_host) = url.host_str() else {
+        return Err(VerifyLinkError::new(
+            VerifyLinkErrorKind::InvalidLink,
+            "Input link does not contain a valid host",
+        ));
+    };
+
+    let host = raw_host.trim().trim_end_matches('.').to_ascii_lowercase();
+    if host.is_empty() {
+        return Err(VerifyLinkError::new(
+            VerifyLinkErrorKind::InvalidLink,
+            "Input link does not contain a valid host",
+        ));
+    }
+
+    if is_blocked_host_name(&host) {
+        return Err(VerifyLinkError::new(
+            VerifyLinkErrorKind::BlockedTarget,
+            format!("Blocked internal target host: {host}"),
+        ));
+    }
+
+    if let Ok(ip) = host.parse::<IpAddr>() {
+        if is_blocked_ip(ip) {
+            return Err(VerifyLinkError::new(
+                VerifyLinkErrorKind::BlockedTarget,
+                format!("Blocked internal target IP: {ip}"),
+            ));
+        }
+    }
+
+    Ok(())
+}
+
+fn is_blocked_host_name(host: &str) -> bool {
+    if host == "localhost" || host.ends_with(".localhost") {
+        return true;
+    }
+
+    if host.ends_with(".local") || host.ends_with(".internal") {
+        return true;
+    }
+
+    BLOCKED_METADATA_HOSTS
+        .iter()
+        .any(|candidate| host.eq_ignore_ascii_case(candidate))
+}
+
+fn is_blocked_ip(ip: IpAddr) -> bool {
+    match ip {
+        IpAddr::V4(ipv4) => {
+            ipv4.is_loopback()
+                || ipv4.is_private()
+                || ipv4.is_link_local()
+                || ipv4.is_unspecified()
+                || is_metadata_ipv4(ipv4)
+        }
+        IpAddr::V6(ipv6) => {
+            ipv6.is_loopback()
+                || ipv6.is_unique_local()
+                || ipv6.is_unicast_link_local()
+                || ipv6.is_unspecified()
+                || is_metadata_ipv6(ipv6)
+        }
+    }
+}
+
+fn is_metadata_ipv4(ip: Ipv4Addr) -> bool {
+    ip == Ipv4Addr::new(169, 254, 169, 254)
+        || ip == Ipv4Addr::new(169, 254, 170, 2)
+        || ip == Ipv4Addr::new(100, 100, 100, 200)
+}
+
+fn is_metadata_ipv6(ip: Ipv6Addr) -> bool {
+    ip == Ipv6Addr::new(0xfd00, 0xec2, 0, 0, 0, 0, 0, 0x254)
 }
 
 fn shortener_domain_set() -> HashSet<String> {
@@ -380,6 +530,7 @@ async fn resolve_with_http(start_link: &str) -> Result<String, VerifyLinkError> 
             format!("Cannot parse resolved URL: {error}"),
         )
     })?;
+    ensure_public_target_url(&final_url)?;
 
     let final_url_text = final_url.to_string();
 
@@ -447,7 +598,10 @@ async fn fetch_response(
         request.headers().set(name, value).map_err(|error| {
             VerifyLinkError::new(
                 VerifyLinkErrorKind::CannotResolve,
-                format!("Cannot set request header '{name}': {}", js_value_to_string(&error)),
+                format!(
+                    "Cannot set request header '{name}': {}",
+                    js_value_to_string(&error)
+                ),
             )
         })?;
     }
@@ -489,9 +643,7 @@ fn map_fetch_error(js_error: JsValue, fallback_kind: VerifyLinkErrorKind) -> Ver
 }
 
 fn js_value_to_string(value: &JsValue) -> String {
-    value
-        .as_string()
-        .unwrap_or_else(|| format!("{value:?}"))
+    value.as_string().unwrap_or_else(|| format!("{value:?}"))
 }
 
 fn is_success_status(status: u16) -> bool {

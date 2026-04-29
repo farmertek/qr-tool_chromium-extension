@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "QR-Tool",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "description": "Generate, decode, and verify QR content with Rust WebAssembly.",
     "icons": {
         "16": "icons/icon16.png",

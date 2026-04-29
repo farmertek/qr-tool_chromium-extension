@@ -7,6 +7,9 @@ import initWasm, {
     generate_qr_png_data_url,
     generate_qr_svg,
     pick_clipboard_image_type,
+    preview_deep_verify_origin_wasm,
+    verify_link_deep_wasm,
+    verify_link_local_wasm,
     verify_link_wasm,
 } from "./wasm/wasm_qr.js";
 
@@ -18,6 +21,7 @@ const CAMERA_SCAN_INTERVAL_MAX_MS = 800;
 const CAMERA_DEDUP_MS = 1500;
 const CAMERA_OPTIMIZED_ROI_RATIO = 0.68;
 const CAMERA_OPTIMIZED_DECODE_MAX_SIDE = 960;
+const VERIFY_DEEP_LOG_HIDE_DELAY_MS = 900;
 const DEFAULT_OVERLAY_FONT_STYLE = "Regular";
 const OVERLAY_FONT_FALLBACK_FAMILIES_WINDOWS = [
     "Segoe UI",
@@ -113,6 +117,12 @@ let decodePreviewObjectUrl = "";
 let overlayFontChoices = buildFallbackOverlayFontChoices();
 let overlayFontSystemLoadState = "idle";
 let generatePreviewRenderToken = 0;
+let verifyPendingDeepOrigin = "";
+let verifyDeepLogRunning = false;
+let verifyDeepLogLines = [];
+let verifyDeepLogHideTimer = null;
+let wifiModalOpen = false;
+let wifiErrorKey = "";
 
 const cameraState = {
     stream: null,
@@ -176,6 +186,7 @@ function cacheElements() {
     ui.generateLight = document.getElementById("generate-light");
     ui.generateButton = document.getElementById("generate-button");
     ui.generateClearAll = document.getElementById("generate-clear-all");
+    ui.generateOpenWifiForm = document.getElementById("generate-open-wifi-form");
     ui.generatedImage = document.getElementById("generated-image");
     ui.generateEmpty = document.getElementById("generate-empty");
     ui.downloadPng = document.getElementById("download-png");
@@ -194,6 +205,14 @@ function cacheElements() {
     ui.generateOverlayLogoFile = document.getElementById("generate-overlay-logo-file");
     ui.generateOverlayLogoName = document.getElementById("generate-overlay-logo-name");
     ui.generateOverlayClearLogo = document.getElementById("generate-overlay-clear-logo");
+    ui.generateWifiModal = document.getElementById("generate-wifi-modal");
+    ui.generateWifiSsid = document.getElementById("wifi-ssid");
+    ui.generateWifiPassword = document.getElementById("wifi-password");
+    ui.generateWifiSecurity = document.getElementById("wifi-security");
+    ui.generateWifiHidden = document.getElementById("wifi-hidden");
+    ui.generateWifiError = document.getElementById("wifi-form-error");
+    ui.generateWifiApplyButton = document.getElementById("wifi-apply-button");
+    ui.generateWifiCancelButton = document.getElementById("wifi-cancel-button");
 
     ui.decodeDropzone = document.getElementById("decode-dropzone");
     ui.decodeFile = document.getElementById("decode-file");
@@ -226,7 +245,14 @@ function cacheElements() {
     ui.cameraVerifyOutput = document.getElementById("camera-verify-output");
 
     ui.verifyUrl = document.getElementById("verify-url");
-    ui.verifyButton = document.getElementById("verify-button");
+    ui.verifyLocalButton = document.getElementById("verify-local-button");
+    ui.verifyDeepButton = document.getElementById("verify-deep-button");
+    ui.verifyDeepConfirm = document.getElementById("verify-deep-confirm");
+    ui.verifyDeepOrigin = document.getElementById("verify-deep-origin");
+    ui.verifyDeepConfirmButton = document.getElementById("verify-deep-confirm-button");
+    ui.verifyDeepCancelButton = document.getElementById("verify-deep-cancel-button");
+    ui.verifyDeepLog = document.getElementById("verify-deep-log");
+    ui.verifyDeepLogOutput = document.getElementById("verify-deep-log-output");
     ui.verifyResult = document.getElementById("verify-result");
     ui.verifyCopyOutput = document.getElementById("verify-copy-output");
     ui.verifyOpenVirusTotal = document.getElementById("verify-open-virustotal");
@@ -302,6 +328,10 @@ function bindEvents() {
         void handleGenerate();
     });
 
+    ui.generateOpenWifiForm.addEventListener("click", () => {
+        openGenerateWifiModal();
+    });
+
     ui.generateClearAll.addEventListener("click", () => {
         void handleClearGenerateAll();
     });
@@ -320,6 +350,31 @@ function bindEvents() {
 
     ui.generateOverlayClearLogo.addEventListener("click", () => {
         handleOverlayLogoCleared();
+    });
+
+    ui.generateWifiApplyButton.addEventListener("click", () => {
+        void handleBuildWifiPayload();
+    });
+
+    ui.generateWifiCancelButton.addEventListener("click", () => {
+        closeGenerateWifiModal();
+    });
+
+    ui.generateWifiSsid.addEventListener("input", () => {
+        if (wifiErrorKey) {
+            setGenerateWifiError("");
+        }
+    });
+
+    ui.generateWifiModal.addEventListener("click", (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) {
+            return;
+        }
+
+        if (target.dataset.wifiModalClose === "backdrop") {
+            closeGenerateWifiModal();
+        }
     });
 
     ui.decodeFile.addEventListener("change", () => {
@@ -405,8 +460,25 @@ function bindEvents() {
         void handleCameraZoomChanged();
     });
 
-    ui.verifyButton.addEventListener("click", () => {
-        void handleVerify();
+    ui.verifyLocalButton.addEventListener("click", () => {
+        void handleVerifyLocal();
+    });
+
+    ui.verifyDeepButton.addEventListener("click", () => {
+        void handleRequestVerifyDeep();
+    });
+
+    ui.verifyDeepConfirmButton.addEventListener("click", () => {
+        void handleVerifyDeep();
+    });
+
+    ui.verifyDeepCancelButton.addEventListener("click", () => {
+        handleCancelVerifyDeep();
+    });
+
+    ui.verifyUrl.addEventListener("input", () => {
+        clearVerifyDeepConfirmation();
+        clearVerifyDeepLogPanel();
     });
 
     ui.verifyCopyOutput.addEventListener("click", () => {
@@ -457,6 +529,13 @@ function bindEvents() {
     document.addEventListener("visibilitychange", () => {
         if (document.hidden) {
             void handleStopCamera(false);
+        }
+    });
+
+    document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && wifiModalOpen) {
+            event.preventDefault();
+            closeGenerateWifiModal();
         }
     });
 
@@ -533,6 +612,8 @@ function applyTranslations() {
         ui.generateOverlayLogoName.textContent = t("generate.overlayLogoNone");
     }
 
+    refreshGenerateWifiErrorMessage();
+
     fitSettingsSelectWidths();
     updateTorchButtonState();
 }
@@ -560,6 +641,8 @@ function hydrateControls() {
     updateOverlayCornerRadiusDisplay(state.generate.overlay.cornerRadiusPercent);
     ui.generateOverlayTextColor.value = state.generate.overlay.textColor;
     ui.generateOverlayBoxColor.value = state.generate.overlay.boxColor;
+    resetGenerateWifiForm();
+    closeGenerateWifiModal();
 
     ui.cameraAutoStop.checked = state.camera.autoStopOnFirst;
     ui.cameraCopyOnDetect.checked = state.camera.copyOnDetect;
@@ -568,12 +651,213 @@ function hydrateControls() {
     ui.cameraIntervalValue.textContent = String(state.camera.scanIntervalMs);
     ui.cameraZoomValue.textContent = Number(state.camera.zoomLevel).toFixed(1);
     ui.verifyResult.value = "";
+    clearVerifyDeepConfirmation();
+    clearVerifyDeepLogPanel();
 
     ui.languageSelect.value = state.language;
     ui.themeSelect.value = state.theme;
 
     fitSettingsSelectWidths();
     updateTorchButtonState();
+}
+
+function openGenerateWifiModal() {
+    const parsed = parseWifiQrPayload(ui.generateInput.value);
+    if (parsed) {
+        ui.generateWifiSsid.value = parsed.ssid;
+        ui.generateWifiPassword.value = parsed.password;
+        ui.generateWifiSecurity.value = parsed.security;
+        ui.generateWifiHidden.checked = parsed.hidden;
+        setGenerateWifiError("");
+    } else {
+        resetGenerateWifiForm();
+    }
+
+    ui.generateWifiModal.hidden = false;
+    wifiModalOpen = true;
+    document.body.classList.add("wifi-modal-open");
+
+    window.setTimeout(() => {
+        ui.generateWifiSsid.focus();
+    }, 0);
+}
+
+function closeGenerateWifiModal() {
+    ui.generateWifiModal.hidden = true;
+    wifiModalOpen = false;
+    document.body.classList.remove("wifi-modal-open");
+    setGenerateWifiError("");
+}
+
+function resetGenerateWifiForm() {
+    ui.generateWifiSsid.value = "";
+    ui.generateWifiPassword.value = "";
+    ui.generateWifiSecurity.value = "wpa_wpa2";
+    ui.generateWifiHidden.checked = false;
+    setGenerateWifiError("");
+}
+
+function setGenerateWifiError(key) {
+    wifiErrorKey = key || "";
+    if (!wifiErrorKey) {
+        ui.generateWifiError.textContent = "";
+        ui.generateWifiError.hidden = true;
+        return;
+    }
+
+    ui.generateWifiError.textContent = t(wifiErrorKey);
+    ui.generateWifiError.hidden = false;
+}
+
+function refreshGenerateWifiErrorMessage() {
+    if (wifiErrorKey) {
+        ui.generateWifiError.textContent = t(wifiErrorKey);
+    }
+}
+
+async function handleBuildWifiPayload() {
+    const ssid = ui.generateWifiSsid.value.trim();
+    if (!ssid) {
+        setGenerateWifiError("generate.wifiSsidRequired");
+        return;
+    }
+
+    const password = ui.generateWifiPassword.value.trim();
+    const securityToken = ui.generateWifiSecurity.value === "wep" ? "WEP" : "WPA";
+    const hidden = Boolean(ui.generateWifiHidden.checked);
+    const payload = buildWifiQrPayload(ssid, password, securityToken, hidden);
+
+    ui.generateInput.value = payload;
+    closeGenerateWifiModal();
+
+    await renderGenerateSymbolicPreview();
+    setStatus(t("status.wifiPayloadReady"), false, true);
+}
+
+function buildWifiQrPayload(ssid, password, securityToken, hidden) {
+    const escapedSsid = escapeWifiQrValue(ssid);
+    const passwordTrimmed = String(password || "").trim();
+    const isOpenNetwork = passwordTrimmed.length === 0;
+    const authToken = isOpenNetwork ? "nopass" : securityToken;
+
+    let payload = `WIFI:T:${authToken};S:${escapedSsid};`;
+    if (!isOpenNetwork) {
+        payload += `P:${escapeWifiQrValue(passwordTrimmed)};`;
+    }
+
+    if (hidden) {
+        payload += "H:true;";
+    }
+
+    payload += ";";
+    return payload;
+}
+
+function escapeWifiQrValue(value) {
+    return String(value || "").replace(/[\\;,:"]/g, "\\$&");
+}
+
+function parseWifiQrPayload(content) {
+    const trimmed = String(content || "").trim();
+    const prefixMatch = /^wifi:/i.exec(trimmed);
+    if (!prefixMatch) {
+        return null;
+    }
+
+    const payload = trimmed.slice(prefixMatch[0].length);
+    const tokens = splitWifiQrTokens(payload);
+
+    let ssid = "";
+    let password = "";
+    let authToken = "";
+    let hidden = false;
+
+    for (const token of tokens) {
+        if (!token) {
+            continue;
+        }
+
+        const separatorIndex = token.indexOf(":");
+        if (separatorIndex <= 0) {
+            continue;
+        }
+
+        const key = token.slice(0, separatorIndex).trim().toUpperCase();
+        const value = token.slice(separatorIndex + 1).trim();
+
+        switch (key) {
+            case "S":
+                ssid = value;
+                break;
+            case "P":
+                password = value;
+                break;
+            case "T":
+                authToken = value.toUpperCase();
+                break;
+            case "H":
+                hidden = parseWifiHiddenFlag(value);
+                break;
+            default:
+                break;
+        }
+    }
+
+    ssid = ssid.trim();
+    if (!ssid) {
+        return null;
+    }
+
+    const isOpenNetwork = authToken === "NOPASS";
+    return {
+        ssid,
+        password: isOpenNetwork ? "" : password,
+        security: authToken === "WEP" ? "wep" : "wpa_wpa2",
+        hidden,
+    };
+}
+
+function splitWifiQrTokens(payload) {
+    const source = String(payload || "");
+    const tokens = [];
+    let current = "";
+    let escaped = false;
+
+    for (const ch of source) {
+        if (escaped) {
+            current += ch;
+            escaped = false;
+            continue;
+        }
+
+        if (ch === "\\") {
+            escaped = true;
+            continue;
+        }
+
+        if (ch === ";") {
+            tokens.push(current);
+            current = "";
+            continue;
+        }
+
+        current += ch;
+    }
+
+    if (escaped) {
+        current += "\\";
+    }
+
+    if (current || source.endsWith(";")) {
+        tokens.push(current);
+    }
+
+    return tokens;
+}
+
+function parseWifiHiddenFlag(value) {
+    const normalized = String(value || "").trim().toLowerCase();
+    return normalized === "true" || normalized === "1" || normalized === "yes" || normalized === "y";
 }
 
 function selectTab(tabName) {
@@ -1818,7 +2102,7 @@ async function verifyFromSourceOutput(sourceOutput, emptyStatusKey) {
 
     ui.verifyUrl.value = normalized;
     selectTab("verify");
-    await handleVerify();
+    await handleVerifyLocal();
 }
 
 async function handleCopyVerifyOutput() {
@@ -2483,34 +2767,228 @@ function formatCameraError(error) {
     return formatError(error);
 }
 
-async function handleVerify() {
-    setStatus(t("status.verifying"));
+async function handleVerifyLocal() {
+    if (verifyDeepLogRunning) {
+        setStatus(t("status.verifyingDeep"));
+        return;
+    }
+
+    clearVerifyDeepConfirmation();
+    clearVerifyDeepLogPanel();
+    setStatus(t("status.verifyingLocal"));
 
     try {
-        const verified = await verifyLinkViaWasm(ui.verifyUrl.value);
-        ui.verifyResult.value = verified.resolvedLink;
-        pushHistory(
-            "verify",
-            verified.resolvedLink,
-            verified.inputLink !== verified.resolvedLink
-                ? verified.inputLink
-                : t("verify.sameAsInput"),
-        );
-        await persistState();
-        setStatus(t("status.verifySuccess"), false, true);
+        const verified = await verifyLinkLocalViaWasm(ui.verifyUrl.value);
+        await handleVerifySucceeded(verified, "status.verifyLocalSuccess");
     } catch (error) {
-        const reason = mapVerifyErrorToMessage(error);
-        ui.verifyResult.value = reason;
-        setStatus(`${t("status.verifyFailed")}: ${reason}`, true);
+        handleVerifyFailed(error);
     }
 }
 
-async function verifyLinkViaWasm(rawInput) {
-    if (typeof verify_link_wasm !== "function") {
+async function handleRequestVerifyDeep() {
+    if (verifyDeepLogRunning) {
+        setStatus(t("status.verifyingDeep"));
+        return;
+    }
+
+    try {
+        const origin = await previewDeepVerifyOriginViaWasm(ui.verifyUrl.value);
+        verifyPendingDeepOrigin = origin;
+        if (ui.verifyDeepOrigin) {
+            ui.verifyDeepOrigin.textContent = origin;
+        }
+        if (ui.verifyDeepConfirm) {
+            ui.verifyDeepConfirm.hidden = false;
+        }
+        setStatus(t("status.verifyDeepConfirmRequired", { origin }), false, true);
+    } catch (error) {
+        clearVerifyDeepConfirmation();
+        handleVerifyFailed(error);
+    }
+}
+
+async function handleVerifyDeep() {
+    if (verifyDeepLogRunning) {
+        setStatus(t("status.verifyingDeep"));
+        return;
+    }
+
+    if (!verifyPendingDeepOrigin) {
+        await handleRequestVerifyDeep();
+        return;
+    }
+
+    const confirmedOrigin = verifyPendingDeepOrigin;
+    clearVerifyDeepConfirmation();
+    startVerifyDeepLogPanel(ui.verifyUrl.value, confirmedOrigin);
+    setStatus(t("status.verifyingDeep"));
+
+    try {
+        const rawInput = String(ui.verifyUrl.value ?? "");
+        try {
+            const normalized = normalizeUserInputLink(rawInput);
+            appendVerifyDeepLogLine("INFO", "normalize", `Normalized input URL: ${normalized}`);
+        } catch (error) {
+            appendVerifyDeepLogLine("ERROR", "normalize", formatError(error));
+        }
+
+        appendVerifyDeepLogLine(
+            "INFO",
+            "heuristic",
+            "Delegate unwrap, guardrails, and deep resolve flow to Rust WASM.",
+        );
+
+        const verified = await verifyLinkDeepViaWasm(ui.verifyUrl.value);
+        appendVerifyDeepLogLine(
+            "INFO",
+            "result",
+            `Deep verify resolved final URL: ${verified.resolvedLink}`,
+        );
+        await handleVerifySucceeded(verified, "status.verifyDeepSuccess");
+    } catch (error) {
+        appendVerifyDeepLogLine("ERROR", "result", mapVerifyErrorToMessage(error));
+        handleVerifyFailed(error);
+    } finally {
+        finishVerifyDeepLogPanel();
+    }
+}
+
+function handleCancelVerifyDeep() {
+    clearVerifyDeepConfirmation();
+    clearVerifyDeepLogPanel();
+    setStatus(t("status.verifyDeepCancelled"), false, true);
+}
+
+function clearVerifyDeepConfirmation() {
+    verifyPendingDeepOrigin = "";
+    if (ui.verifyDeepOrigin) {
+        ui.verifyDeepOrigin.textContent = "";
+    }
+    if (ui.verifyDeepConfirm) {
+        ui.verifyDeepConfirm.hidden = true;
+    }
+}
+
+function startVerifyDeepLogPanel(rawInput, confirmedOrigin) {
+    clearVerifyDeepLogHideTimer();
+    verifyDeepLogRunning = true;
+    verifyDeepLogLines = [];
+
+    if (ui.verifyDeepLogOutput) {
+        ui.verifyDeepLogOutput.value = "";
+    }
+    if (ui.verifyDeepLog) {
+        ui.verifyDeepLog.hidden = false;
+    }
+
+    const inputText = String(rawInput ?? "").trim();
+    appendVerifyDeepLogLine("INFO", "input", `Received verify request: ${inputText || "(empty)"}`);
+    appendVerifyDeepLogLine(
+        "INFO",
+        "confirm",
+        `User confirmed deep verify for origin: ${String(confirmedOrigin || "(unknown)")}`,
+    );
+}
+
+function appendVerifyDeepLogLine(level, step, detail) {
+    const line = `[${level}] ${step}: ${String(detail || "")}`;
+    verifyDeepLogLines.push(line);
+
+    if (!ui.verifyDeepLogOutput) {
+        return;
+    }
+
+    ui.verifyDeepLogOutput.value = verifyDeepLogLines.join("\n");
+    ui.verifyDeepLogOutput.scrollTop = ui.verifyDeepLogOutput.scrollHeight;
+}
+
+function finishVerifyDeepLogPanel() {
+    verifyDeepLogRunning = false;
+    clearVerifyDeepLogHideTimer();
+    verifyDeepLogHideTimer = window.setTimeout(() => {
+        clearVerifyDeepLogPanel();
+    }, VERIFY_DEEP_LOG_HIDE_DELAY_MS);
+}
+
+function clearVerifyDeepLogPanel() {
+    verifyDeepLogRunning = false;
+    clearVerifyDeepLogHideTimer();
+    verifyDeepLogLines = [];
+
+    if (ui.verifyDeepLogOutput) {
+        ui.verifyDeepLogOutput.value = "";
+    }
+    if (ui.verifyDeepLog) {
+        ui.verifyDeepLog.hidden = true;
+    }
+}
+
+function clearVerifyDeepLogHideTimer() {
+    if (verifyDeepLogHideTimer == null) {
+        return;
+    }
+
+    window.clearTimeout(verifyDeepLogHideTimer);
+    verifyDeepLogHideTimer = null;
+}
+
+async function handleVerifySucceeded(verified, successStatusKey) {
+    ui.verifyResult.value = verified.resolvedLink;
+    pushHistory(
+        "verify",
+        redactSensitiveQueryInLink(verified.resolvedLink),
+        verified.inputLink !== verified.resolvedLink
+            ? redactSensitiveQueryInLink(verified.inputLink)
+            : t("verify.sameAsInput"),
+    );
+    await persistState();
+    setStatus(t(successStatusKey), false, true);
+}
+
+function handleVerifyFailed(error) {
+    const reason = mapVerifyErrorToMessage(error);
+    ui.verifyResult.value = reason;
+    setStatus(`${t("status.verifyFailed")}: ${reason}`, true);
+}
+
+async function verifyLinkLocalViaWasm(rawInput) {
+    if (typeof verify_link_local_wasm !== "function") {
         throw new Error("WASM verify export is unavailable.");
     }
 
-    const result = await verify_link_wasm(String(rawInput ?? ""));
+    const result = await verify_link_local_wasm(String(rawInput ?? ""));
+    const normalized = normalizeWasmVerifyResult(result);
+    if (!normalized) {
+        throw new Error("WASM verify result is invalid.");
+    }
+
+    return normalized;
+}
+
+async function previewDeepVerifyOriginViaWasm(rawInput) {
+    if (typeof preview_deep_verify_origin_wasm !== "function") {
+        throw new Error("WASM deep verify origin export is unavailable.");
+    }
+
+    const origin = await preview_deep_verify_origin_wasm(String(rawInput ?? ""));
+    const normalized = String(origin || "").trim();
+    if (!normalized) {
+        throw new Error("WASM deep verify origin is invalid.");
+    }
+
+    return normalized;
+}
+
+async function verifyLinkDeepViaWasm(rawInput) {
+    let result = null;
+    if (typeof verify_link_deep_wasm === "function") {
+        result = await verify_link_deep_wasm(String(rawInput ?? ""));
+    } else if (typeof verify_link_wasm === "function") {
+        result = await verify_link_wasm(String(rawInput ?? ""));
+    } else {
+        throw new Error("WASM deep verify export is unavailable.");
+    }
+
     const normalized = normalizeWasmVerifyResult(result);
     if (!normalized) {
         throw new Error("WASM verify result is invalid.");
@@ -2539,7 +3017,7 @@ function normalizeWasmVerifyResult(value) {
 
 function mapVerifyErrorToMessage(error) {
     const rawMessage = formatError(error);
-    const parsed = /^(invalid-link|service-unavailable|cannot-resolve):\s*(.*)$/iu.exec(rawMessage);
+    const parsed = /^(invalid-link|service-unavailable|cannot-resolve|blocked-target):\s*(.*)$/iu.exec(rawMessage);
     const kind = parsed?.[1]?.toLowerCase() || "cannot-resolve";
     const detail = String(parsed?.[2] || rawMessage || "").trim();
 
@@ -2548,6 +3026,8 @@ function mapVerifyErrorToMessage(error) {
         reason = t("verify.error_invalid_link");
     } else if (kind === "service-unavailable") {
         reason = t("verify.error_service_unavailable");
+    } else if (kind === "blocked-target") {
+        reason = t("verify.error_blocked_target");
     }
 
     if (!detail || detail === reason) {
@@ -2668,6 +3148,65 @@ function pushHistory(kind, input, output) {
     state.history.unshift(entry);
     state.history = state.history.slice(0, HISTORY_LIMIT);
     renderHistory();
+}
+
+const SENSITIVE_QUERY_KEY_HINTS = [
+    "token",
+    "key",
+    "auth",
+    "code",
+    "state",
+    "resourcekey",
+    "signature",
+    "sig",
+    "passwd",
+    "password",
+    "secret",
+];
+const REDACTED_QUERY_VALUE = "[redacted]";
+
+function redactSensitiveQueryInLink(link) {
+    const text = String(link || "").trim();
+    if (!text) {
+        return "";
+    }
+
+    let url = null;
+    try {
+        url = new URL(text);
+    } catch (_error) {
+        return text;
+    }
+
+    const entries = [];
+    let hasQuery = false;
+    for (const [key, value] of url.searchParams.entries()) {
+        hasQuery = true;
+        entries.push([
+            key,
+            isSensitiveQueryKey(key) ? REDACTED_QUERY_VALUE : value,
+        ]);
+    }
+
+    if (!hasQuery) {
+        return text;
+    }
+
+    url.search = "";
+    for (const [key, value] of entries) {
+        url.searchParams.append(key, value);
+    }
+
+    return url.toString();
+}
+
+function isSensitiveQueryKey(key) {
+    const normalized = String(key || "").trim().toLowerCase();
+    if (!normalized) {
+        return false;
+    }
+
+    return SENSITIVE_QUERY_KEY_HINTS.some((hint) => normalized.includes(hint));
 }
 
 function compactHistoryText(value, maxLength) {

@@ -45,8 +45,12 @@
                 <div class="generate-desktop-grid">
                     <div class="generate-main-col">
                         <div class="generate-group generate-input-group">
-                            <label class="label" for="generate-input" data-i18n="generate.inputLabel">Nội dung
-                                QR</label>
+                            <div class="generate-input-header">
+                                <label class="label" for="generate-input" data-i18n="generate.inputLabel">Nội dung
+                                    QR</label>
+                                <button id="generate-open-wifi-form" class="btn btn-quiet generate-wifi-button"
+                                    type="button" data-i18n="generate.wifiBuilderButton">Tạo WiFi QR</button>
+                            </div>
                             <textarea id="generate-input" rows="4" data-i18n-placeholder="generate.inputPlaceholder"
                                 placeholder="Nhập text hoặc URL"></textarea>
                         </div>
@@ -294,9 +298,32 @@
                     placeholder="https://example.com" />
 
                 <div class="verify-actions">
-                    <button id="verify-button" class="btn btn-primary" type="button"
-                        data-i18n="verify.verifyButton">Kiểm
-                        tra Link</button>
+                    <button id="verify-local-button" class="btn btn-primary" type="button"
+                        data-i18n="verify.localVerifyButton">Local Verify</button>
+                    <button id="verify-deep-button" class="btn" type="button" data-i18n="verify.deepVerifyButton">Deep
+                        Verify</button>
+                </div>
+
+                <div id="verify-deep-confirm" class="verify-deep-confirm" hidden>
+                    <p class="verify-deep-title" data-i18n="verify.deepConfirmTitle">Confirm Deep Verify</p>
+                    <p class="verify-deep-origin-row">
+                        <span data-i18n="verify.deepConfirmOriginLabel">Origin to access:</span>
+                        <strong id="verify-deep-origin"></strong>
+                    </p>
+                    <p class="hint" data-i18n="verify.deepConfirmNotice">Deep verify may send network requests.</p>
+                    <div class="verify-deep-actions">
+                        <button id="verify-deep-confirm-button" class="btn btn-primary" type="button"
+                            data-i18n="verify.deepConfirmButton">Confirm Deep Verify</button>
+                        <button id="verify-deep-cancel-button" class="btn" type="button"
+                            data-i18n="verify.deepCancelButton">Cancel</button>
+                    </div>
+                </div>
+
+                <div id="verify-deep-log" class="verify-deep-log" hidden>
+                    <p class="verify-deep-title" data-i18n="verify.deepLogTitle">Deep Verify Processing Log</p>
+                    <p class="hint" data-i18n="verify.deepLogNotice">This panel is shown while Deep Verify is
+                        running and will be hidden when completed.</p>
+                    <textarea id="verify-deep-log-output" class="verify-deep-log-output" rows="6" readonly></textarea>
                 </div>
 
                 <label class="label" for="verify-result" data-i18n="verify.outputLabel">Kết quả sau khi verify</label>
@@ -350,6 +377,43 @@
                     </ul>
                 </section>
             </section>
+
+            <div id="generate-wifi-modal" class="wifi-modal" hidden>
+                <div class="wifi-modal-backdrop" data-wifi-modal-close="backdrop"></div>
+                <section class="wifi-modal-card" role="dialog" aria-modal="true" aria-labelledby="wifi-modal-title">
+                    <h3 id="wifi-modal-title" class="wifi-modal-title" data-i18n="generate.wifiModalTitle">Tạo chuỗi
+                        WiFi QR</h3>
+
+                    <label class="label" for="wifi-ssid" data-i18n="generate.wifiSsidLabel">Tên mạng (SSID)</label>
+                    <input id="wifi-ssid" type="text" data-i18n-placeholder="generate.wifiSsidPlaceholder"
+                        placeholder="Ví dụ: MyHomeWiFi" />
+
+                    <label class="label" for="wifi-password" data-i18n="generate.wifiPasswordLabel">Mật khẩu
+                        (Password)</label>
+                    <input id="wifi-password" type="text" data-i18n-placeholder="generate.wifiPasswordPlaceholder"
+                        placeholder="Bỏ trống nếu là mạng mở" />
+
+                    <label class="label" for="wifi-security" data-i18n="generate.wifiSecurityLabel">Loại bảo mật</label>
+                    <select id="wifi-security">
+                        <option value="wpa_wpa2" data-i18n="generate.wifiSecurityWpaWpa2">WPA/WPA2</option>
+                        <option value="wep" data-i18n="generate.wifiSecurityWep">WEP</option>
+                    </select>
+
+                    <label class="checkline" for="wifi-hidden">
+                        <input id="wifi-hidden" type="checkbox" />
+                        <span data-i18n="generate.wifiHiddenLabel">Mạng ẩn (Hidden)</span>
+                    </label>
+
+                    <p id="wifi-form-error" class="wifi-form-error" hidden></p>
+
+                    <div class="wifi-modal-actions">
+                        <button id="wifi-apply-button" class="btn btn-primary" type="button"
+                            data-i18n="generate.wifiBuildButton">Tạo chuỗi và điền vào Content</button>
+                        <button id="wifi-cancel-button" class="btn" type="button"
+                            data-i18n="generate.wifiCancelButton">Hủy</button>
+                    </div>
+                </section>
+            </div>
 
             <footer id="status" class="status" aria-live="polite"></footer>
         </main>

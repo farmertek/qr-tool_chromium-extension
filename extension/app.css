@@ -342,6 +342,28 @@ textarea {
     padding: 8px 10px;
 }
 
+.panel-generate .generate-input-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--gen-gap);
+    margin-bottom: var(--gen-baseline);
+}
+
+.panel-generate .generate-input-header .label {
+    margin: 0;
+}
+
+.panel-generate .generate-wifi-button {
+    margin: -2px 0 0;
+    align-self: flex-start;
+    padding: 4px 9px;
+    min-height: 26px;
+    font-size: 11px;
+    line-height: 1.15;
+    white-space: nowrap;
+}
+
 .panel-generate .generate-top-grid {
     width: 100%;
     max-width: 100%;
@@ -950,18 +972,90 @@ label[for="decode-output"],
 
 .verify-actions {
     display: grid;
-    grid-template-columns: minmax(0, var(--verify-button-w));
+    grid-template-columns: repeat(2, minmax(0, var(--verify-button-w)));
     gap: 8px;
     width: var(--verify-controls-w);
     max-width: 100%;
     margin-bottom: 8px;
 }
 
-#verify-button,
+#verify-local-button,
+#verify-deep-button,
+#verify-deep-confirm-button,
+#verify-deep-cancel-button,
 #verify-copy-output,
 #verify-open-virustotal {
     width: 100%;
     margin-bottom: 0;
+}
+
+#verify-deep-button,
+#verify-deep-confirm-button {
+    background: #80096a;
+    border-color: #80096a;
+    color: #f7fcff;
+}
+
+#verify-deep-button:hover,
+#verify-deep-confirm-button:hover {
+    background: #690857;
+    border-color: #690857;
+}
+
+.verify-deep-confirm {
+    width: var(--verify-controls-w);
+    max-width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px;
+    margin: 2px 0 10px;
+    background: var(--surface-2);
+}
+
+.verify-deep-log {
+    width: var(--verify-controls-w);
+    max-width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px;
+    margin: 2px 0 10px;
+    background: color-mix(in oklab, var(--surface-2), #80096a 7%);
+}
+
+.verify-deep-log-output {
+    width: 100%;
+    min-height: 126px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    padding: 9px 10px;
+    font-size: 12px;
+    line-height: 1.45;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    background: var(--surface-1);
+    color: var(--text);
+    resize: vertical;
+}
+
+.verify-deep-title {
+    margin: 0 0 6px;
+    font-weight: 700;
+}
+
+.verify-deep-origin-row {
+    margin: 0 0 6px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    font-size: 13px;
+}
+
+.verify-deep-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, var(--verify-button-w)));
+    gap: 8px;
+    width: 100%;
+    max-width: 100%;
+    margin-top: 8px;
 }
 
 .panel[data-tab="verify"] label[for="verify-url"],
@@ -997,7 +1091,7 @@ label[for="decode-output"],
 #generate-button,
 #decode-button,
 #camera-start,
-#verify-button,
+#verify-local-button,
 #clear-history {
     background: var(--brand-primary);
     border-color: var(--brand-primary);
@@ -1007,7 +1101,7 @@ label[for="decode-output"],
 #generate-button:hover,
 #decode-button:hover,
 #camera-start:hover,
-#verify-button:hover,
+#verify-local-button:hover,
 #clear-history:hover {
     background: var(--brand-primary-strong);
     border-color: var(--brand-primary-strong);
@@ -1132,6 +1226,70 @@ label[for="decode-output"],
     background: color-mix(in oklab, var(--accent), transparent 92%);
 }
 
+.wifi-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 120;
+    display: grid;
+    place-items: center;
+}
+
+.wifi-modal[hidden] {
+    display: none;
+}
+
+.wifi-modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(7, 12, 24, 0.48);
+}
+
+.wifi-modal-card {
+    position: relative;
+    width: min(460px, calc(100vw - 28px));
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--surface);
+    box-shadow: var(--shadow);
+    padding: 14px;
+    display: grid;
+    gap: 8px;
+}
+
+.wifi-modal-title {
+    margin: 0 0 4px;
+    font-size: 16px;
+    font-weight: 800;
+}
+
+.wifi-modal .checkline {
+    margin: 2px 0 0;
+}
+
+.wifi-form-error {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--danger);
+}
+
+.wifi-modal-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.wifi-modal-actions .btn,
+.wifi-modal-actions .btn-primary {
+    width: 100%;
+    margin: 0;
+}
+
+body.wifi-modal-open {
+    overflow: hidden;
+}
+
 @media (max-width: 1100px) {
     .app-shell {
         grid-template-columns: 185px minmax(0, 1fr);
@@ -1176,6 +1334,7 @@ label[for="decode-output"],
     .decode-toolbar,
     .decode-actions,
     .verify-actions,
+    .verify-deep-actions,
     .verify-checkers,
     .camera-device-row,
     .camera-actions-row,

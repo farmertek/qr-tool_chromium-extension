@@ -5,6 +5,7 @@ extension/vendor/i18next.js
 dist/
 docs/
 plan/
+WebstoreUpload/
 dist_build_cmd.txt
 *.log
 .env

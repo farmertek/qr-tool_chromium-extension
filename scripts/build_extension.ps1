@@ -21,6 +21,26 @@ function Ensure-Command {
     }
 }
 
+function Clear-ReadOnlyFlag {
+    param([string]$Path)
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        return
+    }
+
+    $allItems = Get-ChildItem -LiteralPath $Path -Recurse -Force -ErrorAction SilentlyContinue
+    foreach ($item in $allItems) {
+        if (([int]$item.Attributes -band 1) -eq 1) {
+            $item.Attributes = $item.Attributes -bxor [IO.FileAttributes]::ReadOnly
+        }
+    }
+
+    $root = Get-Item -LiteralPath $Path -Force -ErrorAction SilentlyContinue
+    if ($null -ne $root -and (([int]$root.Attributes -band 1) -eq 1)) {
+        $root.Attributes = $root.Attributes -bxor [IO.FileAttributes]::ReadOnly
+    }
+}
+
 Ensure-Command -Name 'wasm-pack' -InstallHint 'Install from https://rustwasm.github.io/wasm-pack/installer/'
 Ensure-Command -Name 'npm' -InstallHint 'Install Node.js LTS from https://nodejs.org/'
 
@@ -37,6 +57,10 @@ $wasmOutputDir = Join-Path $rootPath 'extension\wasm'
 if (Test-Path $wasmOutputDir) {
     Remove-Item $wasmOutputDir -Recurse -Force
 }
+
+$wasmTargetDir = Join-Path $rootPath 'wasm_qr\target'
+Write-Host 'Ensuring wasm_qr target directory is writable...'
+Clear-ReadOnlyFlag -Path $wasmTargetDir
 
 $wasmPackArgs = @(
     'build',

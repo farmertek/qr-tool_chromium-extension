@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="vi">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>QR-Tool</title>
+    <link rel="stylesheet" href="popup.css" />
+</head>
+
+<body>
+    <main class="shell">
+        <header class="hero">
+            <p class="eyebrow" data-i18n="app.eyebrow">Rust + WebAssembly</p>
+            <h1 data-i18n="app.title">QR-Tool</h1>
+            <p class="subtitle" data-i18n="app.subtitle">
+                Tạo, đọc và kiểm tra QR ngay trên trình duyệt.
+            </p>
+        </header>
+
+        <nav class="tabbar" aria-label="QR tool tabs">
+            <button type="button" class="tab active" data-tab-target="generate" data-i18n="tabs.generate">
+                Tạo QR
+            </button>
+            <button type="button" class="tab" data-tab-target="read" data-i18n="tabs.read">
+                Đọc QR
+            </button>
+            <button type="button" class="tab" data-tab-target="camera" data-i18n="tabs.camera">
+                Camera
+            </button>
+            <button type="button" class="tab" data-tab-target="verify" data-i18n="tabs.verify">
+                Kiểm tra Link
+            </button>
+            <button type="button" class="tab" data-tab-target="history" data-i18n="tabs.history">
+                Lịch sử
+            </button>
+            <button type="button" class="tab" data-tab-target="settings" data-i18n="tabs.settings">
+                Cài đặt
+            </button>
+        </nav>
+
+        <section class="panel active" data-tab="generate">
+            <label class="label" for="generate-input" data-i18n="generate.inputLabel">Nội dung QR</label>
+            <textarea id="generate-input" rows="4" data-i18n-placeholder="generate.inputPlaceholder"
+                placeholder="Nhập text hoặc URL"></textarea>
+
+            <div class="grid-two">
+                <div>
+                    <label class="label" for="generate-size" data-i18n="generate.sizeLabel">Kích thước</label>
+                    <input id="generate-size" type="range" min="192" max="1024" step="32" value="512" />
+                    <p class="hint"><span id="generate-size-value">512</span> px</p>
+                </div>
+
+                <div class="color-group">
+                    <label class="label" for="generate-dark" data-i18n="generate.darkColor">Màu tối</label>
+                    <input id="generate-dark" type="color" value="#111111" />
+
+                    <label class="label" for="generate-light" data-i18n="generate.lightColor">Màu sáng</label>
+                    <input id="generate-light" type="color" value="#ffffff" />
+                </div>
+            </div>
+
+            <button id="generate-button" class="btn btn-primary" type="button" data-i18n="generate.generateButton">
+                Tạo QR
+            </button>
+
+            <div class="preview-card">
+                <img id="generated-image" alt="Generated QR preview" hidden />
+                <p id="generate-empty" class="hint" data-i18n="generate.previewHint">
+                    Ảnh QR sẽ hiển thị tại đây sau khi tạo.
+                </p>
+            </div>
+
+            <div class="actions">
+                <button id="download-png" class="btn" type="button" data-i18n="generate.downloadPng">Tải PNG</button>
+                <button id="download-svg" class="btn" type="button" data-i18n="generate.downloadSvg">Tải SVG</button>
+            </div>
+        </section>
+
+        <section class="panel" data-tab="read">
+            <label class="label" for="decode-file" data-i18n="read.fileLabel">Chọn ảnh QR</label>
+            <input id="decode-file" type="file" accept="image/*" />
+
+            <button id="decode-button" class="btn btn-primary" type="button" data-i18n="read.decodeButton">
+                Giải mã QR
+            </button>
+
+            <label class="label" for="decode-output" data-i18n="read.outputLabel">Nội dung đã giải mã</label>
+            <textarea id="decode-output" rows="5" readonly></textarea>
+        </section>
+
+        <section class="panel" data-tab="camera">
+            <label class="label" for="camera-device" data-i18n="camera.deviceLabel">Thiết bị camera</label>
+            <select id="camera-device"></select>
+
+            <div class="actions actions-3">
+                <button id="camera-refresh" class="btn" type="button" data-i18n="camera.refreshButton">
+                    Làm mới
+                </button>
+                <button id="camera-start" class="btn btn-accent" type="button" data-i18n="camera.startButton">
+                    Bắt đầu quét
+                </button>
+                <button id="camera-stop" class="btn" type="button" data-i18n="camera.stopButton">
+                    Dừng camera
+                </button>
+            </div>
+
+            <label class="checkline" for="camera-auto-stop">
+                <input id="camera-auto-stop" type="checkbox" checked />
+                <span data-i18n="camera.autoStopLabel">Tự dừng khi quét được QR đầu tiên</span>
+            </label>
+
+            <div class="camera-stage">
+                <video id="camera-video" autoplay muted playsinline></video>
+                <canvas id="camera-canvas" hidden></canvas>
+                <div class="camera-overlay"></div>
+                <p id="camera-hint" class="camera-hint" data-i18n="camera.previewHint">
+                    Bấm Bắt đầu quét để mở camera và quét QR realtime.
+                </p>
+            </div>
+
+            <label class="label" for="camera-output" data-i18n="camera.outputLabel">Nội dung quét từ camera</label>
+            <textarea id="camera-output" rows="4" readonly></textarea>
+        </section>
+
+        <section class="panel" data-tab="verify">
+            <label class="label" for="verify-url" data-i18n="verify.urlLabel">Nhập URL cần kiểm tra</label>
+            <input id="verify-url" type="text" data-i18n-placeholder="verify.urlPlaceholder"
+                placeholder="https://example.com" />
+
+            <button id="verify-button" class="btn btn-primary" type="button" data-i18n="verify.verifyButton">
+                Kiểm tra Link
+            </button>
+
+            <div id="verify-result" class="verify-result" data-i18n="verify.idle">
+                Chưa kiểm tra liên kết.
+            </div>
+        </section>
+
+        <section class="panel" data-tab="history">
+            <div class="row-between">
+                <p class="label" data-i18n="history.title">Lịch sử thao tác</p>
+                <button id="clear-history" class="btn btn-quiet" type="button" data-i18n="history.clearButton">
+                    Xóa lịch sử
+                </button>
+            </div>
+
+            <ul id="history-list" class="history-list"></ul>
+        </section>
+
+        <section class="panel" data-tab="settings">
+            <label class="label" for="language-select" data-i18n="settings.languageLabel">Ngôn ngữ</label>
+            <select id="language-select">
+                <option value="vi" data-i18n="settings.languageVi">Tiếng Việt</option>
+                <option value="en" data-i18n="settings.languageEn">English</option>
+            </select>
+
+            <label class="label" for="theme-select" data-i18n="settings.themeLabel">Giao diện</label>
+            <select id="theme-select">
+                <option value="system" data-i18n="settings.themeSystem">Hệ thống</option>
+                <option value="light" data-i18n="settings.themeLight">Sáng</option>
+                <option value="dark" data-i18n="settings.themeDark">Tối</option>
+            </select>
+        </section>
+
+        <footer id="status" class="status" aria-live="polite"></footer>
+    </main>
+
+    <script type="module" src="popup.js"></script>
+</body>
+
+</html>

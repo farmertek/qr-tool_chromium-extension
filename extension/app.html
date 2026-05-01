@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="vi">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>QR-Tool Workspace</title>
+    <link rel="stylesheet" href="app.css" />
+</head>
+
+<body>
+    <div class="app-shell">
+        <aside class="sidebar">
+            <div class="brand">
+                <p class="eyebrow" data-i18n="app.eyebrow">Rust + WebAssembly</p>
+                <h1 data-i18n="app.title">QR-Tool</h1>
+                <p class="brand-subtitle" data-i18n="app.subtitle">Tạo, đọc và kiểm tra QR ngay trên trình duyệt.</p>
+            </div>
+
+            <nav class="side-nav" aria-label="QR-Tool Tabs">
+                <button type="button" class="nav-tab active" data-tab-target="generate" data-i18n="tabs.generate">Tạo
+                    QR</button>
+                <button type="button" class="nav-tab" data-tab-target="read" data-i18n="tabs.read">Đọc QR</button>
+                <button type="button" class="nav-tab" data-tab-target="camera" data-i18n="tabs.camera">Camera
+                    scan</button>
+                <button type="button" class="nav-tab" data-tab-target="verify" data-i18n="tabs.verify">Kiểm tra
+                    Link</button>
+                <button type="button" class="nav-tab" data-tab-target="history" data-i18n="tabs.history">Lịch
+                    sử</button>
+                <button type="button" class="nav-tab" data-tab-target="settings" data-i18n="tabs.settings">Cài
+                    đặt</button>
+            </nav>
+        </aside>
+
+        <main class="workspace">
+            <header class="workspace-header">
+                <div>
+                    <h2 data-i18n="app.workspaceTitle">Bảng điều khiển ứng dụng</h2>
+                </div>
+            </header>
+
+            <section class="panel active panel-generate" data-tab="generate">
+                <div class="section-title" data-i18n="tabs.generate">Tạo QR</div>
+
+                <div class="generate-desktop-grid">
+                    <div class="generate-main-col">
+                        <div class="generate-group generate-input-group">
+                            <div class="generate-input-header">
+                                <label class="label" for="generate-input" data-i18n="generate.inputLabel">Nội dung
+                                    QR</label>
+                                <button id="generate-open-wifi-form" class="btn btn-quiet generate-wifi-button"
+                                    type="button" data-i18n="generate.wifiBuilderButton">Tạo WiFi QR</button>
+                            </div>
+                            <textarea id="generate-input" rows="4" data-i18n-placeholder="generate.inputPlaceholder"
+                                placeholder="Nhập text hoặc URL"></textarea>
+                        </div>
+
+                        <div class="grid-two generate-group generate-top-grid">
+                            <div class="card generate-size-card generate-baseline-card">
+                                <label class="label" for="generate-size" data-i18n="generate.sizeLabel">Kích
+                                    thước</label>
+                                <input id="generate-size" type="range" min="192" max="1536" step="32" value="640" />
+                                <p class="hint"><span id="generate-size-value">640</span> px</p>
+                            </div>
+
+                            <div class="card color-pair-grid generate-color-card">
+                                <div class="color-field">
+                                    <label class="label" for="generate-dark" data-i18n="generate.darkColor">Màu
+                                        tối</label>
+                                    <input id="generate-dark" type="color" value="#111111" />
+                                </div>
+                                <div class="color-field">
+                                    <label class="label" for="generate-light" data-i18n="generate.lightColor">Màu
+                                        sáng</label>
+                                    <input id="generate-light" type="color" value="#ffffff" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card generate-group generate-overlay-card">
+                            <p class="section-subtitle" data-i18n="generate.overlayTitle">Overlay logo/text trung tâm
+                            </p>
+
+                            <label class="label" for="generate-overlay-text" data-i18n="generate.overlayTextLabel">Text
+                                overlay</label>
+                            <input id="generate-overlay-text" type="text"
+                                data-i18n-placeholder="generate.overlayTextPlaceholder"
+                                placeholder="Nhập text để chèn vào giữa mã QR" />
+
+                            <div class="grid-two generate-overlay-range-grid">
+                                <div class="generate-baseline-field">
+                                    <label class="label" for="generate-overlay-text-size"
+                                        data-i18n="generate.overlayTextSizeLabel">Cỡ chữ overlay</label>
+                                    <input id="generate-overlay-text-size" type="range" min="10" max="64" step="1"
+                                        value="20" />
+                                    <p class="hint"><span id="generate-overlay-text-size-value">20</span> px</p>
+                                </div>
+                                <div class="overlay-font-field">
+                                    <label class="label" for="generate-overlay-font"
+                                        data-i18n="generate.overlayFontLabel">Font
+                                        chữ overlay</label>
+                                    <select id="generate-overlay-font">
+                                        <option value="Segoe UI">Segoe UI</option>
+                                        <option value="Bahnschrift Condensed">Bahnschrift Condensed</option>
+                                        <option value="Tahoma">Tahoma</option>
+                                        <option value="Trebuchet MS">Trebuchet MS</option>
+                                        <option value="Verdana">Verdana</option>
+                                        <option value="Arial">Arial</option>
+                                        <option value="Georgia">Georgia</option>
+                                        <option value="Times New Roman">Times New Roman</option>
+                                        <option value="Courier New">Courier New</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="overlay-font-color-row">
+                                <div class="generate-baseline-field">
+                                    <label class="label" for="generate-overlay-ratio"
+                                        data-i18n="generate.overlayRatioLabel">Kích thước overlay</label>
+                                    <input id="generate-overlay-ratio" type="range" min="0" max="30" step="1"
+                                        value="20" />
+                                    <p class="hint"><span id="generate-overlay-ratio-value">20</span>%</p>
+                                </div>
+                                <div class="generate-baseline-field">
+                                    <label class="label" for="generate-overlay-corner-radius"
+                                        data-i18n="generate.overlayCornerRadiusLabel">Bo tròn góc overlay</label>
+                                    <input id="generate-overlay-corner-radius" type="range" min="0" max="50" step="1"
+                                        title="0.00" value="0" />
+                                    <p class="hint"><span id="generate-overlay-corner-radius-value">0.00</span></p>
+                                </div>
+                                <div class="overlay-color-stack">
+                                    <div class="color-grid">
+                                        <label class="label" for="generate-overlay-text-color"
+                                            data-i18n="generate.overlayTextColorLabel">Màu chữ overlay</label>
+                                        <input id="generate-overlay-text-color" type="color" value="#111111" />
+                                    </div>
+                                    <div class="color-grid">
+                                        <label class="label" for="generate-overlay-box-color"
+                                            data-i18n="generate.overlayBoxColorLabel">Màu nền overlay</label>
+                                        <input id="generate-overlay-box-color" type="color" value="#ffffff" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <label class="label" for="generate-overlay-logo-file"
+                                data-i18n="generate.overlayLogoLabel">Logo
+                                overlay</label>
+                            <input id="generate-overlay-logo-file" type="file" accept="image/*" />
+                            <div class="generate-logo-meta-row">
+                                <p id="generate-overlay-logo-name" class="hint" data-i18n="generate.overlayLogoNone">
+                                    Chưa chọn logo.</p>
+                                <button id="generate-overlay-clear-logo" type="button" class="btn btn-quiet"
+                                    data-i18n="generate.clearLogoButton">Xóa logo</button>
+                            </div>
+                        </div>
+
+                        <div class="generate-group generate-actions-row">
+                            <button id="generate-button" class="btn btn-primary generate-primary-button" type="button"
+                                data-i18n="generate.generateButton">Tạo QR</button>
+                            <button id="generate-clear-all" class="btn generate-clear-button" type="button"
+                                data-i18n="generate.clearAllButton">Xóa tất cả</button>
+                        </div>
+                    </div>
+
+                    <aside class="generate-preview-col">
+                        <p class="hint generate-note generate-preview-inline-note"
+                            data-i18n="generate.previewGenerateOnlyHint">QR chỉ được tạo khi nhấn [Generate QR]</p>
+                        <div class="preview-card generate-group generate-preview-card">
+                            <img id="generated-image" alt="Generated QR preview" hidden />
+                            <p id="generate-empty" class="hint" data-i18n="generate.previewHint">Ảnh QR sẽ hiển thị tại
+                                đây sau
+                                khi tạo.</p>
+                        </div>
+
+                        <div class="actions generate-group generate-download-actions">
+                            <button id="download-png" class="btn" type="button" data-i18n="generate.downloadPng">Tải
+                                PNG</button>
+                            <button id="download-svg" class="btn" type="button" data-i18n="generate.downloadSvg">Tải
+                                SVG</button>
+                        </div>
+                        <p class="hint generate-group generate-note" data-i18n="generate.svgOverlayWarning">Lưu SVG sẽ
+                            không
+                            nhúng overlay logo/text, chỉ PNG
+                            có overlay đầy đủ.</p>
+                    </aside>
+                </div>
+            </section>
+
+            <section class="panel" data-tab="read">
+                <div class="section-title" data-i18n="tabs.read">Đọc QR</div>
+
+                <div class="decode-toolbar">
+                    <button id="decode-paste-button" class="btn" type="button" data-i18n="read.pasteButton">Dán ảnh từ
+                        Clipboard</button>
+                    <div class="decode-file-wrap">
+                        <label class="label" for="decode-file" data-i18n="read.fileLabel">Chọn ảnh QR</label>
+                        <input id="decode-file" type="file" accept="image/*" />
+                    </div>
+                </div>
+
+                <div id="decode-dropzone" class="dropzone" tabindex="0">
+                    <img id="decode-source-image" class="decode-dropzone-preview" alt="Decode source preview" hidden />
+                    <div class="decode-dropzone-copy">
+                        <p data-i18n="read.dropHint">Kéo-thả ảnh QR vào đây</p>
+                        <p class="hint" data-i18n="read.dropSubHint">hoặc chọn file/đọc từ clipboard ảnh</p>
+                    </div>
+                </div>
+
+                <div class="decode-actions">
+                    <button id="decode-button" class="btn btn-primary" type="button" data-i18n="read.decodeButton">Giải
+                        mã QR</button>
+                    <button id="decode-clear-source" class="btn" type="button" data-i18n="read.clearSourceButton">Xóa
+                        nguồn ảnh</button>
+                </div>
+
+                <label class="label" for="decode-output" data-i18n="read.outputLabel">Nội dung đã giải mã</label>
+                <textarea id="decode-output" rows="6" readonly></textarea>
+                <div class="output-actions read-output-actions">
+                    <button id="decode-copy-output" class="btn" type="button" data-i18n="read.copyDecodedButton">Copy
+                        decoded content</button>
+                    <button id="decode-verify-output" class="btn" type="button" data-i18n="verify.verifyButton">Kiểm tra
+                        Link</button>
+                </div>
+            </section>
+
+            <section class="panel" data-tab="camera">
+                <div class="section-title" data-i18n="tabs.camera">Camera scan</div>
+
+                <div class="camera-device-row">
+                    <label class="label camera-device-inline-label" for="camera-device"
+                        data-i18n="camera.deviceLabel">Thiết bị camera</label>
+                    <select id="camera-device" class="camera-device-select"></select>
+                    <button id="camera-refresh" class="btn" type="button" data-i18n="camera.refreshButton">Làm
+                        mới</button>
+                </div>
+
+                <div class="camera-actions-row">
+                    <button id="camera-start" class="btn btn-accent" type="button" data-i18n="camera.startButton">Bắt
+                        đầu quét</button>
+                    <button id="camera-torch" class="btn" type="button" data-i18n="camera.torchButtonOff">Bật
+                        đèn</button>
+                    <button id="camera-stop" class="btn" type="button" data-i18n="camera.stopButton">Stop
+                        scan</button>
+                </div>
+
+                <div class="camera-check-grid">
+                    <label class="checkline" for="camera-auto-stop">
+                        <input id="camera-auto-stop" type="checkbox" checked />
+                        <span data-i18n="camera.autoStopLabel">Tự dừng khi quét được QR đầu tiên</span>
+                    </label>
+                    <label class="checkline" for="camera-copy-on-detect">
+                        <input id="camera-copy-on-detect" type="checkbox" />
+                        <span data-i18n="camera.copyOnDetectLabel">Tự copy nội dung sau khi quét thành công</span>
+                    </label>
+                    <label class="checkline" for="camera-optimize-decode">
+                        <input id="camera-optimize-decode" type="checkbox" checked />
+                        <span data-i18n="camera.optimizeDecodeLabel">Ưu tiên decode nhẹ CPU (ROI/downscale)</span>
+                    </label>
+                </div>
+
+                <div class="camera-interval-row">
+                    <div class="camera-interval-block">
+                        <label class="label" for="camera-interval" data-i18n="camera.intervalLabel">Chu kỳ quét</label>
+                        <input id="camera-interval" type="range" min="80" max="800" step="10" value="180" />
+                        <p class="hint"><span id="camera-interval-value">180</span> ms</p>
+                    </div>
+                </div>
+
+                <div id="camera-zoom-wrap" class="zoom-wrap" hidden>
+                    <label class="label" for="camera-zoom" data-i18n="camera.zoomLabel">Zoom camera</label>
+                    <input id="camera-zoom" type="range" min="1" max="1" step="0.1" value="1" />
+                    <p class="hint"><span id="camera-zoom-value">1</span>x</p>
+                </div>
+
+                <div class="camera-stage">
+                    <video id="camera-video" autoplay muted playsinline></video>
+                    <canvas id="camera-canvas" hidden></canvas>
+                    <div class="camera-overlay"></div>
+                    <p id="camera-hint" class="camera-hint" data-i18n="camera.previewHint">Bấm Bắt đầu quét để mở camera
+                        và quét QR realtime.</p>
+                </div>
+
+                <label class="label" for="camera-output" data-i18n="camera.outputLabel">Nội dung quét từ camera</label>
+                <textarea id="camera-output" rows="4" readonly></textarea>
+                <div class="output-actions camera-output-actions">
+                    <button id="camera-copy-output" class="btn" type="button" data-i18n="camera.copyDecodedButton">Copy
+                        decoded content</button>
+                    <button id="camera-verify-output" class="btn" type="button" data-i18n="verify.verifyButton">Kiểm tra
+                        Link</button>
+                </div>
+            </section>
+
+            <section class="panel" data-tab="verify">
+                <div class="section-title" data-i18n="tabs.verify">Kiểm tra Link</div>
+
+                <label class="label" for="verify-url" data-i18n="verify.urlLabel">Nhập URL cần kiểm tra</label>
+                <input id="verify-url" type="text" data-i18n-placeholder="verify.urlPlaceholder"
+                    placeholder="https://example.com" />
+
+                <div class="verify-actions">
+                    <button id="verify-local-button" class="btn btn-primary" type="button"
+                        data-i18n="verify.localVerifyButton">Local Verify</button>
+                    <button id="verify-deep-button" class="btn" type="button" data-i18n="verify.deepVerifyButton">Deep
+                        Verify</button>
+                </div>
+
+                <div id="verify-deep-confirm" class="verify-deep-confirm" hidden>
+                    <p class="verify-deep-title" data-i18n="verify.deepConfirmTitle">Confirm Deep Verify</p>
+                    <p class="verify-deep-origin-row">
+                        <span data-i18n="verify.deepConfirmOriginLabel">Origin to access:</span>
+                        <strong id="verify-deep-origin"></strong>
+                    </p>
+                    <p class="hint" data-i18n="verify.deepConfirmNotice">Deep verify may send network requests.</p>
+                    <div class="verify-deep-actions">
+                        <button id="verify-deep-confirm-button" class="btn btn-primary" type="button"
+                            data-i18n="verify.deepConfirmButton">Confirm Deep Verify</button>
+                        <button id="verify-deep-cancel-button" class="btn" type="button"
+                            data-i18n="verify.deepCancelButton">Cancel</button>
+                    </div>
+                </div>
+
+                <div id="verify-deep-log" class="verify-deep-log" hidden>
+                    <p class="verify-deep-title" data-i18n="verify.deepLogTitle">Deep Verify Processing Log</p>
+                    <p class="hint" data-i18n="verify.deepLogNotice">This panel is shown while Deep Verify is
+                        running and will be hidden when completed.</p>
+                    <textarea id="verify-deep-log-output" class="verify-deep-log-output" rows="6" readonly></textarea>
+                </div>
+
+                <label class="label" for="verify-result" data-i18n="verify.outputLabel">Kết quả sau khi verify</label>
+                <textarea id="verify-result" class="verify-result" rows="6" readonly data-i18n-placeholder="verify.idle"
+                    placeholder="Chưa kiểm tra liên kết."></textarea>
+
+                <div class="verify-checkers">
+                    <button id="verify-copy-output" class="btn" type="button" data-i18n="verify.copyOutputButton">Copy
+                        output</button>
+                    <button id="verify-open-virustotal" class="btn" type="button"
+                        data-i18n="verify.openVirusTotalButton">virustotal.com</button>
+                </div>
+            </section>
+
+            <section class="panel" data-tab="history">
+                <div class="section-title" data-i18n="tabs.history">Lịch sử</div>
+                <div class="row-between">
+                    <p class="label" data-i18n="history.title">Lịch sử thao tác</p>
+                    <button id="clear-history" class="btn btn-quiet" type="button" data-i18n="history.clearButton">Xóa
+                        lịch sử</button>
+                </div>
+                <ul id="history-list" class="history-list"></ul>
+            </section>
+
+            <section class="panel" data-tab="settings">
+                <div class="section-title" data-i18n="tabs.settings">Cài đặt</div>
+
+                <label class="label" for="language-select" data-i18n="settings.languageLabel">Ngôn ngữ</label>
+                <select id="language-select" class="settings-select">
+                    <option value="vi" data-i18n="settings.languageVi">Tiếng Việt</option>
+                    <option value="en" data-i18n="settings.languageEn">English</option>
+                </select>
+
+                <label class="label" for="theme-select" data-i18n="settings.themeLabel">Giao diện</label>
+                <select id="theme-select" class="settings-select">
+                    <option value="system" data-i18n="settings.themeSystem">Hệ thống</option>
+                    <option value="light" data-i18n="settings.themeLight">Sáng</option>
+                    <option value="dark" data-i18n="settings.themeDark">Tối</option>
+                </select>
+
+                <section class="settings-about-card" aria-label="About QR-Tool">
+                    <p class="settings-about-title" data-i18n="settings.aboutTitle">About</p>
+                    <ul class="settings-about-list">
+                        <li data-i18n="settings.aboutCopyright">+ Copyright © 2026 by Hai lúa [DIV-MEKONG]</li>
+                        <li>
+                            <span data-i18n="settings.aboutLicenseLabel">+ license (MIT), repository:</span>
+                            <a id="settings-about-repository-link" class="settings-about-link"
+                                href="https://github.com/farmertek/qr-tool_chromium-extension" target="_blank"
+                                rel="noopener noreferrer">https://github.com/farmertek/qr-tool_chromium-extension</a>
+                        </li>
+                    </ul>
+                </section>
+            </section>
+
+            <div id="generate-wifi-modal" class="wifi-modal" hidden>
+                <div class="wifi-modal-backdrop" data-wifi-modal-close="backdrop"></div>
+                <section class="wifi-modal-card" role="dialog" aria-modal="true" aria-labelledby="wifi-modal-title">
+                    <h3 id="wifi-modal-title" class="wifi-modal-title" data-i18n="generate.wifiModalTitle">Tạo chuỗi
+                        WiFi QR</h3>
+
+                    <label class="label" for="wifi-ssid" data-i18n="generate.wifiSsidLabel">Tên mạng (SSID)</label>
+                    <input id="wifi-ssid" type="text" data-i18n-placeholder="generate.wifiSsidPlaceholder"
+                        placeholder="Ví dụ: MyHomeWiFi" />
+
+                    <label class="label" for="wifi-password" data-i18n="generate.wifiPasswordLabel">Mật khẩu
+                        (Password)</label>
+                    <input id="wifi-password" type="text" data-i18n-placeholder="generate.wifiPasswordPlaceholder"
+                        placeholder="Bỏ trống nếu là mạng mở" />
+
+                    <label class="label" for="wifi-security" data-i18n="generate.wifiSecurityLabel">Loại bảo mật</label>
+                    <select id="wifi-security">
+                        <option value="wpa_wpa2" data-i18n="generate.wifiSecurityWpaWpa2">WPA/WPA2</option>
+                        <option value="wep" data-i18n="generate.wifiSecurityWep">WEP</option>
+                    </select>
+
+                    <label class="checkline" for="wifi-hidden">
+                        <input id="wifi-hidden" type="checkbox" />
+                        <span data-i18n="generate.wifiHiddenLabel">Mạng ẩn (Hidden)</span>
+                    </label>
+
+                    <p id="wifi-form-error" class="wifi-form-error" hidden></p>
+
+                    <div class="wifi-modal-actions">
+                        <button id="wifi-apply-button" class="btn btn-primary" type="button"
+                            data-i18n="generate.wifiBuildButton">Tạo chuỗi và điền vào Content</button>
+                        <button id="wifi-cancel-button" class="btn" type="button"
+                            data-i18n="generate.wifiCancelButton">Hủy</button>
+                    </div>
+                </section>
+            </div>
+
+            <footer id="status" class="status" aria-live="polite"></footer>
+        </main>
+    </div>
+
+    <script type="module" src="app.js"></script>
+</body>
+
+</html>

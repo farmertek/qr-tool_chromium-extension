@@ -89,6 +89,8 @@ powershell -ExecutionPolicy Bypass -File ./scripts/dist_publish_extension.ps1 -E
 
 Local release zip files are stored in `dist/<manifest-version>/`.
 
+Link to official Chrome Web Store listing: https://chromewebstore.google.com/detail/qr-tool/dijoabooaglgpnofooamjhpoicjmbbin
+
 ## Notes
 
 - The extension runs fully local in extension app page context.
